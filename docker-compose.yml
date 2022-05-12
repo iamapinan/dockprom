@@ -1,18 +1,17 @@
 version: '3'
 
 networks:
-  monitor-net:
-    driver: bridge
+  public_net:
+    external: true
 
 volumes:
-    prometheus_data: {}
-    grafana_data: {}
+    prometheus_data:
+    grafana_data:
 
 services:
 
   prometheus:
     image: prom/prometheus:v2.35.0
-    container_name: prometheus
     volumes:
       - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
@@ -24,32 +23,26 @@ services:
       - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
     restart: unless-stopped
-    expose:
+    ports:
       - 9090
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
 
   alertmanager:
     image: prom/alertmanager:v0.24.0
-    container_name: alertmanager
     volumes:
       - ./alertmanager:/etc/alertmanager
     command:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
     restart: unless-stopped
-    expose:
+    ports:
       - 9093
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
 
   nodeexporter:
     image: prom/node-exporter:v1.3.1
-    container_name: nodeexporter
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -60,19 +53,13 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     restart: unless-stopped
-    expose:
+    ports:
       - 9100
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.44.0
-    container_name: cadvisor
-    privileged: true
-    devices:
-      - /dev/kmsg:/dev/kmsg
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -80,16 +67,13 @@ services:
       - /var/lib/docker:/var/lib/docker:ro
       #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
     restart: unless-stopped
-    expose:
+    ports:
       - 8080
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
 
   grafana:
     image: grafana/grafana:8.4.5
-    container_name: grafana
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
@@ -99,27 +83,21 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     restart: unless-stopped
-    expose:
+    ports:
       - 3000
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
 
   pushgateway:
     image: prom/pushgateway:v1.4.2
-    container_name: pushgateway
     restart: unless-stopped
-    expose:
+    ports:
       - 9091
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
 
   caddy:
     image: caddy:2.3.0
-    container_name: caddy
     ports:
       - "3000:3000"
       - "9090:9090"
@@ -133,6 +111,4 @@ services:
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-JDJhJDE0JE91S1FrN0Z0VEsyWmhrQVpON1VzdHVLSDkyWHdsN0xNbEZYdnNIZm1pb2d1blg4Y09mL0ZP}
     restart: unless-stopped
     networks:
-      - monitor-net
-    labels:
-      org.label-schema.group: "monitoring"
+      - public_net
